@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>音声認識アプリ</title>
+    <title>音声認識アプリ (類似検索版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* 日本語フォント設定 (オプション) */
@@ -27,7 +27,7 @@
 <body class="container mx-auto p-6 bg-gray-100 flex flex-col items-center justify-center min-h-screen">
 
     <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg text-center">
-        <h1 class="text-2xl font-bold mb-6">音声認識アプリ</h1>
+        <h1 class="text-2xl font-bold mb-6">音声認識アプリ (類似検索版)</h1>
 
         <button id="startButton" class="btn">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 inline-block mr-2 align-middle">
@@ -43,8 +43,8 @@
             <div id="outputArea" class="output-box">ここに認識結果に対応するテキストが表示されます。</div>
         </div>
          <div class="mt-6 text-left">
-            <h2 class="text-lg font-semibold mb-2">認識された単語：</h2>
-            <div id="recognizedWordArea" class="output-box bg-gray-100">ここに認識された単語が表示されます。</div>
+            <h2 class="text-lg font-semibold mb-2">認識された単語（最も近い登録語）：</h2>
+            <div id="recognizedWordArea" class="output-box bg-gray-100">ここに認識された単語と、最も近い登録単語が表示されます。</div>
         </div>
     </div>
 
@@ -52,9 +52,7 @@
         // --- 設定箇所：ここから ---
 
         // 認識させたい単語と、それに対応する出力テキストのマッピング
-        // 左側（キー）に認識させたい単語（日本語）、右側（バリュー）に画面に出力したいテキストを記述します。
-        // 例: '認識させたい単語': '画面に出力するテキスト'
-        // ここに約200個の単語とテキストのペアを追加してください。
+        // (変更なし、以前と同じように単語を追加してください)
         const wordMap = {
             // --- 例 ---
             'こんにちは': '挨拶：こんにちは！今日も一日頑張りましょう。',
@@ -301,7 +299,56 @@
         const startButton = document.getElementById('startButton');
         const outputArea = document.getElementById('outputArea');
         const statusArea = document.getElementById('statusArea');
-        const recognizedWordArea = document.getElementById('recognizedWordArea'); // 認識された単語表示用
+        const recognizedWordArea = document.getElementById('recognizedWordArea');
+
+        // --- レーベンシュタイン距離計算関数 ---
+        function levenshteinDistance(s1, s2) {
+            s1 = s1.toLowerCase();
+            s2 = s2.toLowerCase();
+
+            const costs = [];
+            for (let i = 0; i <= s1.length; i++) {
+                let lastValue = i;
+                for (let j = 0; j <= s2.length; j++) {
+                    if (i === 0) {
+                        costs[j] = j;
+                    } else {
+                        if (j > 0) {
+                            let newValue = costs[j - 1];
+                            if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+                                newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                            }
+                            costs[j - 1] = lastValue;
+                            lastValue = newValue;
+                        }
+                    }
+                }
+                if (i > 0) costs[s2.length] = lastValue;
+            }
+            return costs[s2.length];
+        }
+
+        // --- 最も近い単語を見つける関数 ---
+        function findBestMatch(transcript, map) {
+            let minDistance = Infinity;
+            let bestMatchKey = null;
+            const keys = Object.keys(map);
+
+            if (keys.length === 0) {
+                return null; // マップが空の場合はnullを返す
+            }
+
+            for (const key of keys) {
+                const distance = levenshteinDistance(transcript, key);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    bestMatchKey = key;
+                }
+            }
+            // 完全一致の場合も、最も近い単語として扱われる (距離が0になるため)
+            return bestMatchKey;
+        }
+
 
         // Web Speech APIの互換性チェック
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -319,7 +366,7 @@
             recognition.onstart = () => {
                 statusArea.textContent = '音声認識中... 話してください。';
                 startButton.disabled = true;
-                startButton.classList.add('animate-pulse'); // 認識中を示すアニメーション
+                startButton.classList.add('animate-pulse');
             };
 
             // 認識終了
@@ -329,18 +376,33 @@
                  startButton.classList.remove('animate-pulse');
             };
 
-            // 結果取得
+            // 結果取得 (修正箇所)
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript.trim(); // 認識された音声テキスト
-                recognizedWordArea.textContent = `「${transcript}」`; // 認識された単語を表示
 
-                // wordMapに登録された単語かどうかチェック
-                if (wordMap.hasOwnProperty(transcript)) {
-                    outputArea.textContent = wordMap[transcript]; // 対応するテキストを表示
-                    statusArea.textContent = `「${transcript}」を認識しました。`;
+                if (transcript === "") {
+                     statusArea.textContent = '音声が空でした。';
+                     recognizedWordArea.textContent = '';
+                     outputArea.textContent = '';
+                     return;
+                }
+
+                const bestMatchKey = findBestMatch(transcript, wordMap);
+
+                if (bestMatchKey) {
+                    outputArea.textContent = wordMap[bestMatchKey]; // 最も近い単語に対応するテキストを表示
+                    if (transcript === bestMatchKey) {
+                         recognizedWordArea.textContent = `「${transcript}」（完全一致）`;
+                         statusArea.textContent = `「${transcript}」を認識しました。`;
+                    } else {
+                         recognizedWordArea.textContent = `認識：「${transcript}」→ 最も近い登録語：「${bestMatchKey}」`;
+                         statusArea.textContent = `「${transcript}」に最も近い「${bestMatchKey}」として認識しました。`;
+                    }
                 } else {
-                    outputArea.textContent = '登録されていない単語です。';
-                    statusArea.textContent = `「${transcript}」は認識リストにありません。`;
+                    // wordMapが空の場合など
+                    outputArea.textContent = '比較対象の単語が登録されていません。';
+                    recognizedWordArea.textContent = `認識：「${transcript}」`;
+                    statusArea.textContent = '登録単語リストが空です。';
                 }
             };
 
@@ -364,8 +426,8 @@
                         errorMessage = `エラー (${event.error}): ${event.message}`;
                 }
                 statusArea.textContent = errorMessage;
-                outputArea.textContent = ''; // エラー時は出力エリアをクリア
-                recognizedWordArea.textContent = ''; // エラー時は認識単語エリアもクリア
+                outputArea.textContent = '';
+                recognizedWordArea.textContent = '';
             };
 
             // --- ボタンのクリックイベント ---
@@ -373,10 +435,9 @@
                 try {
                     recognition.start();
                 } catch (e) {
-                    // 既に開始している場合などのエラーをキャッチ
                     console.error("Recognition start error:", e);
                     statusArea.textContent = '認識を開始できませんでした。既に実行中かもしれません。';
-                    startButton.disabled = false; // エラー時はボタンを有効に戻す
+                    startButton.disabled = false;
                     startButton.classList.remove('animate-pulse');
                 }
             });
