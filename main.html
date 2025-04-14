@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pharmacy Finder (類似検索・句読点全体除去版)</title>
+    <title>Pharmacy Finder (類似検索・句読点全体除去・カタカナ変換版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* 日本語フォント設定 (オプション) */
@@ -27,7 +27,7 @@
 <body class="container mx-auto p-6 bg-gray-100 flex flex-col items-center justify-center min-h-screen">
 
     <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg text-center">
-        <h1 class="text-2xl font-bold mb-6">音声認識アプリ (類似検索・句読点全体除去版)</h1>
+        <h1 class="text-2xl font-bold mb-6">音声認識アプリ (類似検索・句読点除去・カタカナ変換版)</h1>
 
         <button id="startButton" class="btn">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 inline-block mr-2 align-middle">
@@ -43,8 +43,8 @@
             <div id="outputArea" class="output-box">ここに認識結果に対応するテキストが表示されます。</div>
         </div>
          <div class="mt-6 text-left">
-            <h2 class="text-lg font-semibold mb-2">認識された単語（/ 最も近い登録語）：</h2>
-            <div id="recognizedWordArea" class="output-box bg-gray-100">ここに認識された単語（や最も近い登録単語）が表示されます。</div>
+            <h2 class="text-lg font-semibold mb-2">認識処理（認識語 → カタカナ化 → 最も近い登録語）：</h2>
+            <div id="recognizedWordArea" class="output-box bg-gray-100">ここに認識された単語と処理プロセスが表示されます。</div>
         </div>
     </div>
 
@@ -52,6 +52,7 @@
         // --- 設定箇所：ここから ---
 
         // 認識させたい単語と、それに対応する出力テキストのマッピング
+        // ★注意：キーは基本的にカタカナで登録してください（比較のため）
         const wordMap = {
 'トラゾドン': 'トラゾドン：棚A A-1',
 'ジゴキシン': 'ジゴキシン：棚A A-2',
@@ -63,8 +64,8 @@
 'アムロビジン': 'アムロビジン：棚B B-3',
 'グリメピソド': 'グリメピソド：棚B B-4',
 'アレンドロン': 'アレンドロン：棚B B-5',
-'麻黄附子細辛湯': '麻黄附子細辛湯：棚C C-1',
-'まおうぶしさいしんとう': 'まおうぶしさいしんとう：棚C C-2',
+'マオウブシサイシントウ': '麻黄附子細辛湯：棚C C-1', // カタカナに変更
+'まおうぶしさいしんとう': 'まおうぶしさいしんとう：棚C C-2', // ひらがなも残す場合（必要に応じて）
 'アブリンジン': 'アブリンジン：棚C C-3',
 'ニフェジピン': 'ニフェジピン：棚C C-4',
 'オルケディア': 'オルケディア：棚C C-5',
@@ -76,24 +77,24 @@
 'ベオーバ': 'ベオーバ：棚E E-1',
 'ジアゼバム': 'ジアゼバム：棚E E-2',
 'デキストロメトルファン': 'デキストロメトルファン：棚E E-3',
-'硝酸イソソルビド': '硝酸イソソルビド：棚E E-4',
-'モサブリドクエン酸塩': 'モサブリドクエン酸塩：棚E E-5',
+'ショウサンイソソルビド': '硝酸イソソルビド：棚E E-4', // カタカナに変更
+'モサブリドクエンサンエン': 'モサブリドクエン酸塩：棚E E-5', // カタカナに変更
 'ノイロビタン': 'ノイロビタン：棚F F-1',
 'ニトラゼパム': 'ニトラゼパム：棚F F-2',
-'リン酸コデイン': 'リン酸コデイン：棚F F-3',
+'リンサンコデイン': 'リン酸コデイン：棚F F-3', // カタカナに変更
 'プロセミド': 'プロセミド：棚F F-4',
 'レバミピド': 'レバミピド：棚F F-5',
 'メコバラミン': 'メコバラミン：棚G G-1',
 'ゾルピデム': 'ゾルピデム：棚G G-2',
-'トラネキサム酸': 'トラネキサム酸：棚G G-3',
+'トラネキサムサン': 'トラネキサム酸：棚G G-3', // カタカナに変更
 'スピロノラクトン': 'スピロノラクトン：棚G G-4',
 'エソメプラゾール': 'エソメプラゾール：棚G G-5',
-'クエン酸第一鉄ナトリウム': 'クエン酸第一鉄ナトリウム：棚H H-1',
+'クエンサンダイイッテツナトリウム': 'クエン酸第一鉄ナトリウム：棚H H-1', // カタカナに変更
 'デエビゴ': 'デエビゴ：棚H H-2',
 'SPトローチ': 'SPトローチ：棚H H-3',
 'トリクロルメチアシド': 'トリクロルメチアシド：棚H H-4',
 'ランソプラゾール': 'ランソプラゾール：棚H H-5',
-'ラロキシフェン塩酸塩': 'ラロキシフェン塩酸塩：棚I I-1',
+'ラロキシフェンエンサンエン': 'ラロキシフェン塩酸塩：棚I I-1', // カタカナに変更
 'エチゾラム': 'エチゾラム：棚I I-2',
 'ピーエイ': 'ピーエイ：棚I I-3',
 'テノーミン': 'テノーミン：棚I I-4',
@@ -101,21 +102,21 @@
 'エゼチミブ': 'エゼチミブ：棚J J-1',
 'カルコーパ': 'カルコーパ：棚J J-2',
 'アンブロキソール': 'アンブロキソール：棚J J-3',
-'ベラパミル塩酸塩': 'ベラパミル塩酸塩：棚J J-4',
-'ラベプラゾールナトリウム塩': 'ラベプラゾールナトリウム塩：棚J J-5',
+'ベラパミルエンサンエン': 'ベラパミル塩酸塩：棚J J-4', // カタカナに変更
+'ラベプラゾールナトリウムエン': 'ラベプラゾールナトリウム塩：棚J J-5', // カタカナに変更
 'ピタバスタチンカルシウム': 'ピタバスタチンカルシウム：棚K K-1',
 'ドプス': 'ドプス：棚K K-2',
-'フェキソフェナジン塩酸塩': 'フェキソフェナジン塩酸塩：棚K K-3',
+'フェキソフェナジンエンサンエン': 'フェキソフェナジン塩酸塩：棚K K-3', // カタカナに変更
 'エンレスト': 'エンレスト：棚K K-4',
 'ファモチジン': 'ファモチジン：棚K K-5',
 'ファモチジンプラバスタチンナトリウム': 'ファモチジンプラバスタチンナトリウム：棚L L-1',
-'ベタヒスチンメシル塩': 'ベタヒスチンメシル塩：棚L L-2',
+'ベタヒスチンメシルサンエン': 'ベタヒスチンメシル塩：棚L L-2', // カタカナに変更
 'ロラタジン': 'ロラタジン：棚L L-3',
-'テモカプリル塩酸塩': 'テモカプリル塩酸塩：棚L L-4',
-'ウルソデオキシコール塩': 'ウルソデオキシコール塩：棚L L-5',
+'テモカプリルエンサンエン': 'テモカプリル塩酸塩：棚L L-4', // カタカナに変更
+'ウルソデオキシコールサン': 'ウルソデオキシコール酸：棚L L-5', // カタカナに変更 (酸塩 -> 酸)
 'アロプリノール': 'アロプリノール：棚M M-1',
-'バルプロ酸ナトリウム': 'バルプロ酸ナトリウム：棚M M-2',
-'オロパタジン塩酸塩': 'オロパタジン塩酸塩：棚M M-3',
+'バルプロサンナトリウム': 'バルプロ酸ナトリウム：棚M M-2', // カタカナに変更
+'オロパタジンエンサンエン': 'オロパタジン塩酸塩：棚M M-3', // カタカナに変更
 'イルベサルタン': 'イルベサルタン：棚M M-4',
 'ニチファーゲン': 'ニチファーゲン：棚M M-5',
 'フェブキソスタット': 'フェブキソスタット：棚N N-1',
@@ -130,21 +131,21 @@
 'センノシド': 'センノシド：棚O O-5',
 'ミグリトール': 'ミグリトール：棚P P-1',
 'ロキソプロフェンナトリウム': 'ロキソプロフェンナトリウム：棚P P-2',
-'セフカペンピボキシル塩酸塩': 'セフカペンピボキシル塩酸塩：棚P P-3',
+'セフカペンピボキシルエンサンエン': 'セフカペンピボキシル塩酸塩：棚P P-3', // カタカナに変更
 'リマプロストアルファデクス': 'リマプロストアルファデクス：棚P P-4',
 'ピコスルファートナトリウム': 'ピコスルファートナトリウム：棚P P-5',
 'フォシーガ': 'フォシーガ：棚Q Q-1',
 'プレガバリン': 'プレガバリン：棚Q Q-2',
 'クラリスロマイシン': 'クラリスロマイシン：棚Q Q-3',
 'ワルファリンカリウム': 'ワルファリンカリウム：棚Q Q-4',
-'ブチルスコポラミン臭化物': 'ブチルスコポラミン臭化物：棚Q Q-5',
+'ブチルスコポラミンシュウカブツ': 'ブチルスコポラミン臭化物：棚Q Q-5', // カタカナに変更
 'トラゼンタ': 'トラゼンタ：棚R R-1',
 'ミオナール': 'ミオナール：棚R R-2',
 'バラシクロビル': 'バラシクロビル：棚R R-3',
 'シロスタゾール': 'シロスタゾール：棚R R-4',
 'ビオスリー': 'ビオスリー：棚R R-5',
 'ナフトピジル': 'ナフトピジル：棚S S-1',
-'アスピリン腸溶': 'アスピリン腸溶：棚S S-2',
+'アスピリンチョウヨウ': 'アスピリン腸溶：棚S S-2', // カタカナに変更
 'ゾフルーザ': 'ゾフルーザ：棚S S-3',
 'クロピドグレル': 'クロピドグレル：棚S S-4',
 'グーフィス': 'グーフィス：棚S S-5',
@@ -156,7 +157,7 @@
         };
 
         // 類似検索のしきい値 (レーベンシュタイン距離)
-        const SIMILARITY_THRESHOLD = 1;
+        const SIMILARITY_THRESHOLD = 1; // しきい値は適宜調整してください
 
         // --- 設定箇所：ここまで ---
 
@@ -165,10 +166,22 @@
         const statusArea = document.getElementById('statusArea');
         const recognizedWordArea = document.getElementById('recognizedWordArea');
 
+        // --- ひらがなをカタカナに変換する関数 ---
+        function toKatakana(str) {
+            if (typeof str !== 'string') {
+                return str;
+            }
+            return str.replace(/[\u3041-\u3096]/g, function(match) {
+                const charCode = match.charCodeAt(0) + 0x60;
+                return String.fromCharCode(charCode);
+            });
+        }
+
         // --- レーベンシュタイン距離計算関数 ---
         function levenshteinDistance(s1, s2) {
-            s1 = s1.toLowerCase();
-            s2 = s2.toLowerCase();
+            // ★比較前に両方をカタカナに変換（念のため）＆小文字化は不要
+            // s1 = toKatakana(s1);
+            // s2 = toKatakana(s2);
 
             const costs = [];
             for (let i = 0; i <= s1.length; i++) {
@@ -179,7 +192,8 @@
                     } else {
                         if (j > 0) {
                             let newValue = costs[j - 1];
-                            if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+                            // ★文字コードレベルで比較
+                            if (s1.charCodeAt(i - 1) !== s2.charCodeAt(j - 1)) {
                                 newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
                             }
                             costs[j - 1] = lastValue;
@@ -202,11 +216,16 @@
                 return { bestMatchKey: null, minDistance: Infinity }; // マップが空の場合
             }
 
+            // ★入力されたtranscriptは既にカタカナ化されている想定
+            const katakanaTranscript = transcript; // toKatakana(transcript); // 事前変換済み
+
             for (const key of keys) {
-                const distance = levenshteinDistance(transcript, key);
+                // ★wordMapのキーも念のためカタカナ変換して比較（ひらがなキーが混在する場合対策）
+                const katakanaKey = toKatakana(key);
+                const distance = levenshteinDistance(katakanaTranscript, katakanaKey);
                 if (distance < minDistance) {
                     minDistance = distance;
-                    bestMatchKey = key;
+                    bestMatchKey = key; // 元のキーを返す
                 }
             }
             return { bestMatchKey, minDistance };
@@ -237,53 +256,58 @@
                  startButton.classList.remove('animate-pulse');
             };
 
-            // 結果取得 (修正箇所：句読点除去処理を全体に適用)
+            // 結果取得 (修正箇所：カタカナ変換処理を追加)
             recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript.trim(); // 認識された元の音声テキスト
+                const originalTranscript = event.results[0][0].transcript.trim(); // 認識された元の音声テキスト
 
-                if (transcript === "") {
+                if (originalTranscript === "") {
                      statusArea.textContent = '音声が空でした。';
                      recognizedWordArea.textContent = '';
                      outputArea.textContent = '';
                      return;
                 }
 
-                // --- ★修正点：文字列全体の句読点と空白を除去 ---
-                // 正規表現 /[。、！？\s]/g は、文字列全体(gフラグ)に含まれる
-                // 「。」、「、」、「！」、「？」、空白文字(\s)のいずれかをすべて除去します。
-                const cleanedTranscript = transcript.replace(/[。、！？\s]/g, '');
-                // ------------------------------------
+                // --- 文字列全体の句読点と空白を除去 ---
+                const cleanedTranscript = originalTranscript.replace(/[。、！？\s]/g, '');
 
-                // 句読点除去後のテキストが空になった場合
-                 if (cleanedTranscript === "") {
-                     statusArea.textContent = '有効な単語が認識されませんでした。';
-                     recognizedWordArea.textContent = `認識：「${transcript}」`; // 元の認識結果は表示
+                // --- ★句読点除去後のテキストをカタカナに変換 ---
+                const katakanaTranscript = toKatakana(cleanedTranscript);
+                // -----------------------------------------
+
+                // カタカナ変換後のテキストが空になった場合
+                 if (katakanaTranscript === "") {
+                     statusArea.textContent = '有効な単語が認識されませんでした（句読点/空白のみ）。';
+                     // 元の認識結果と句読点除去後の結果を表示
+                     recognizedWordArea.textContent = `認識：「${originalTranscript}」→ 処理後：「${cleanedTranscript}」（カタカナ変換不可）`;
                      outputArea.textContent = '';
                      return;
-                }
+                 }
 
-                // 句読点除去後のテキストで最も近い単語とその距離を取得
-                const { bestMatchKey, minDistance } = findBestMatch(cleanedTranscript, wordMap);
+                // ★カタカナ変換後のテキストで最も近い単語とその距離を取得
+                const { bestMatchKey, minDistance } = findBestMatch(katakanaTranscript, wordMap);
 
                 // しきい値と比較
                 if (bestMatchKey && minDistance <= SIMILARITY_THRESHOLD) {
                     // マッチした場合
                     outputArea.textContent = wordMap[bestMatchKey];
-                    if (minDistance === 0 && cleanedTranscript === bestMatchKey) { // 完全一致の場合
-                         recognizedWordArea.textContent = `認識：「${transcript}」 → 完全一致：「${bestMatchKey}」`;
-                         statusArea.textContent = `「${bestMatchKey}」を認識しました。`;
+                    const matchedKeyKatakana = toKatakana(bestMatchKey); // 表示用にマッチしたキーもカタカナ化
+
+                    if (minDistance === 0 && katakanaTranscript === matchedKeyKatakana) { // 完全一致の場合 (カタカナ同士で比較)
+                        recognizedWordArea.textContent = `認識：「${originalTranscript}」 → カタカナ化：「${katakanaTranscript}」 → 完全一致：「${bestMatchKey}」`;
+                        statusArea.textContent = `「${bestMatchKey}」を認識しました。`;
                     } else { // 近い単語の場合
-                         recognizedWordArea.textContent = `認識：「${transcript}」 (→「${cleanedTranscript}」で検索) → 近い登録語：「${bestMatchKey}」(距離: ${minDistance})`;
-                         statusArea.textContent = `「${cleanedTranscript}」に最も近い「${bestMatchKey}」として認識しました。`;
+                        recognizedWordArea.textContent = `認識：「${originalTranscript}」 → カタカナ化：「${katakanaTranscript}」 → 近い登録語：「${bestMatchKey}」(距離: ${minDistance})`;
+                        statusArea.textContent = `「${katakanaTranscript}」に最も近い「${bestMatchKey}」として認識しました。`;
                     }
                 } else {
                     // しきい値より大きい距離、またはマッチが見つからない場合
                     outputArea.textContent = '認識できませんでした。';
-                    recognizedWordArea.textContent = `認識：「${transcript}」 (→「${cleanedTranscript}」で検索)（登録語に一致せず）`;
+                    recognizedWordArea.textContent = `認識：「${originalTranscript}」 → カタカナ化：「${katakanaTranscript}」（登録語に一致せず）`;
                     if (bestMatchKey) {
-                        statusArea.textContent = `「${cleanedTranscript}」を認識しましたが、登録語との距離が遠すぎます (最も近い語:「${bestMatchKey}」, 距離: ${minDistance})`;
+                        statusArea.textContent = `「${katakanaTranscript}」を認識しましたが、登録語との距離が遠すぎます (最も近い語:「${bestMatchKey}」, 距離: ${minDistance})`;
                     } else {
-                        statusArea.textContent = `「${cleanedTranscript}」を認識しましたが、登録語に一致しませんでした。`;
+                        // このケースは通常発生しないはず (findBestMatchは必ず何かキーを返すため)
+                        statusArea.textContent = `「${katakanaTranscript}」を認識しましたが、登録語に一致しませんでした。`;
                     }
                 }
             };
@@ -315,11 +339,16 @@
             // --- ボタンのクリックイベント ---
             startButton.addEventListener('click', () => {
                 try {
+                    // 既に実行中の場合に停止しないようにする (必要であれば停止処理を追加)
+                    // if (recognition && recognition.readyState === 'listening') {
+                    //     recognition.stop();
+                    // }
                     recognition.start();
                 } catch (e) {
                     console.error("Recognition start error:", e);
-                    statusArea.textContent = '認識を開始できませんでした。既に実行中かもしれません。';
-                    startButton.disabled = false;
+                    // エラーメッセージは recognition.onerror で処理されることが多い
+                    // statusArea.textContent = '認識を開始できませんでした。ブラウザの設定を確認するか、ページを再読み込みしてください。';
+                    startButton.disabled = false; // エラー時もボタンを有効に戻す
                     startButton.classList.remove('animate-pulse');
                 }
             });
