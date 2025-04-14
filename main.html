@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>音声認識アプリ (類似検索・しきい値追加版)</title>
+    <title>音声認識アプリ (類似検索・句読点除去版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* 日本語フォント設定 (オプション) */
@@ -27,7 +27,7 @@
 <body class="container mx-auto p-6 bg-gray-100 flex flex-col items-center justify-center min-h-screen">
 
     <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg text-center">
-        <h1 class="text-2xl font-bold mb-6">音声認識アプリ (類似検索・しきい値追加版)</h1>
+        <h1 class="text-2xl font-bold mb-6">音声認識アプリ (類似検索・句読点除去版)</h1>
 
         <button id="startButton" class="btn">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 inline-block mr-2 align-middle">
@@ -293,9 +293,6 @@
         };
 
         // 類似検索のしきい値 (レーベンシュタイン距離)
-        // この値以下の距離であれば、「近い」と判断する
-        // 0: 完全一致のみ / 1: 1文字違いまで許容 / 2: 2文字違いまで許容 ...
-        // 短い単語の誤認識を防ぐため、厳しめに設定 (例: 1)
         const SIMILARITY_THRESHOLD = 1;
 
         // --- 設定箇所：ここまで ---
@@ -332,7 +329,7 @@
             return costs[s2.length];
         }
 
-        // --- 最も近い単語と距離を見つける関数 (修正) ---
+        // --- 最も近い単語と距離を見つける関数 ---
         function findBestMatch(transcript, map) {
             let minDistance = Infinity;
             let bestMatchKey = null;
@@ -343,13 +340,13 @@
             }
 
             for (const key of keys) {
+                // ここで比較するキーも句読点除去は不要 (wordMapのキーは元々綺麗)
                 const distance = levenshteinDistance(transcript, key);
                 if (distance < minDistance) {
                     minDistance = distance;
                     bestMatchKey = key;
                 }
             }
-            // 最も近いキーとその距離を返す
             return { bestMatchKey, minDistance };
         }
 
@@ -366,23 +363,21 @@
 
             // --- イベントハンドラ ---
 
-            // 認識開始
             recognition.onstart = () => {
                 statusArea.textContent = '音声認識中... 話してください。';
                 startButton.disabled = true;
                 startButton.classList.add('animate-pulse');
             };
 
-            // 認識終了
             recognition.onend = () => {
                 statusArea.textContent = '準備完了';
                 startButton.disabled = false;
                  startButton.classList.remove('animate-pulse');
             };
 
-            // 結果取得 (修正箇所：しきい値判定を追加)
+            // 結果取得 (修正箇所：句読点除去処理を追加)
             recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript.trim(); // 認識された音声テキスト
+                const transcript = event.results[0][0].transcript.trim(); // 認識された元の音声テキスト
 
                 if (transcript === "") {
                      statusArea.textContent = '音声が空でした。';
@@ -391,27 +386,46 @@
                      return;
                 }
 
-                // 最も近い単語とその距離を取得
-                const { bestMatchKey, minDistance } = findBestMatch(transcript, wordMap);
+                // --- ★修正点：末尾の句読点と空白を除去 ---
+                // 正規表現 /[。、！？\s]+$/ は、文字列の末尾($)にある
+                // 「。」、「、」、「！」、「？」、空白文字(\s)のいずれか(+)を除去します。
+                const cleanedTranscript = transcript.replace(/[。、！？\s]+$/, '');
+                // ------------------------------------
 
+                // 句読点除去後のテキストが空になった場合（句読点のみだった場合など）
+                 if (cleanedTranscript === "") {
+                     statusArea.textContent = '有効な単語が認識されませんでした。';
+                     recognizedWordArea.textContent = `認識：「${transcript}」`; // 元の認識結果は表示
+                     outputArea.textContent = '';
+                     return;
+                }
+
+                // 句読点除去後のテキストで最も近い単語とその距離を取得
+                const { bestMatchKey, minDistance } = findBestMatch(cleanedTranscript, wordMap);
+
+                // しきい値と比較
                 if (bestMatchKey && minDistance <= SIMILARITY_THRESHOLD) {
-                    // しきい値以下の距離であれば、マッチしたと判断
-                    outputArea.textContent = wordMap[bestMatchKey]; // 対応するテキストを表示
-                    if (minDistance === 0) { // 完全一致の場合 (距離が0)
-                         recognizedWordArea.textContent = `「${transcript}」（完全一致）`;
-                         statusArea.textContent = `「${transcript}」を認識しました。`;
-                    } else { // 近い単語の場合 (距離がしきい値以下)
-                         recognizedWordArea.textContent = `認識：「${transcript}」→ 近い登録語：「${bestMatchKey}」(距離: ${minDistance})`;
-                         statusArea.textContent = `「${transcript}」に最も近い「${bestMatchKey}」として認識しました。`;
+                    // マッチした場合
+                    outputArea.textContent = wordMap[bestMatchKey];
+                    if (minDistance === 0 && cleanedTranscript === bestMatchKey) { // 完全一致の場合
+                         // 元の認識結果と一致したキーを表示
+                         recognizedWordArea.textContent = `認識：「${transcript}」 → 完全一致：「${bestMatchKey}」`;
+                         statusArea.textContent = `「${bestMatchKey}」を認識しました。`;
+                    } else { // 近い単語の場合
+                         // 元の認識結果、検索に使用したテキスト、最も近いキーを表示
+                         recognizedWordArea.textContent = `認識：「${transcript}」 (→「${cleanedTranscript}」で検索) → 近い登録語：「${bestMatchKey}」(距離: ${minDistance})`;
+                         statusArea.textContent = `「${cleanedTranscript}」に最も近い「${bestMatchKey}」として認識しました。`;
                     }
                 } else {
                     // しきい値より大きい距離、またはマッチが見つからない場合
                     outputArea.textContent = '認識できませんでした。';
-                    recognizedWordArea.textContent = `認識：「${transcript}」（登録語に一致せず）`;
+                    // 元の認識結果と、検索に使ったテキストを表示
+                    recognizedWordArea.textContent = `認識：「${transcript}」 (→「${cleanedTranscript}」で検索)（登録語に一致せず）`;
                     if (bestMatchKey) {
-                        statusArea.textContent = `「${transcript}」を認識しましたが、登録語との距離が遠すぎます (最も近い語:「${bestMatchKey}」, 距離: ${minDistance})`;
+                        statusArea.textContent = `「${cleanedTranscript}」を認識しましたが、登録語との距離が遠すぎます (最も近い語:「${bestMatchKey}」, 距離: ${minDistance})`;
                     } else {
-                        statusArea.textContent = `「${transcript}」を認識しましたが、登録語に一致しませんでした。`;
+                        // このケースは通常 findBestMatch が null を返さない限り発生しない
+                        statusArea.textContent = `「${cleanedTranscript}」を認識しましたが、登録語に一致しませんでした。`;
                     }
                 }
             };
