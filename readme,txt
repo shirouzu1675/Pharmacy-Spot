@@ -1,0 +1,20 @@
+このプログラムについて
+
+仕様
+サーバークライアントシステムで構成されるWebアプリです。
+サーバーには、本件プログラムのmain.htmlと音声認識のための薬名-棚位置データ(wordMap.csv)の２つのファイルから構成されます。
+現状：サーバー本体で動作する構成です。
+
+使用方法
+　＞はじめて利用するとき（Webサーバーを動作させる準備）
+　　node.jsのインストール
+        Node.js ダウンロードページ　https://nodejs.org/ja/download/　でnode.jsをダウンロードする
+　　サーバーのインストール
+        npm install -g http-server
+　＞Webサーバーの起動
+　　サーバープログラムの起動
+        HTMLファイルと wordMap.csv ファイルがあるディレクトリに移動
+        cd \gitHome\Pharmacy-Spot
+        http-server
+　＞クライアントの設定
+        http://192.168.40.240:8080/main.html
