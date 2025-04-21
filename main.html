@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
+    <!DOCTYPE html>
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,327 +26,348 @@
         }
     </style>
 </head>
+
 <body class="container mx-auto p-6 bg-gray-100 flex flex-col items-center justify-center min-h-screen">
 
-    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg text-center">
-        <h1 class="text-2xl font-bold mb-6">音声認識アプリ (CSV読み込み版)</h1>
+    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg text-center">
+        <h1 class="text-2xl font-bold mb-6">音声認識アプリ (CSV読み込み版)</h1>
 
-        <button id="startButton" class="btn" disabled>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 inline-block mr-2 align-middle">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
-            </svg>
-            <span id="startButtonText">読み込み中...</span>
-        </button>
+        <button id="startButton" class="btn" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 inline-block mr-2 align-middle">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+            </svg>
+            <span id="startButtonText">読み込み中...</span>
+        </button>
 
-        <div id="statusArea" class="status-box mt-4">単語リスト(CSV)を読み込み中...</div>
+        <div id="statusArea" class="status-box mt-4">単語リスト(CSV)を読み込み中...</div>
 
-        <div class="mt-6 text-left">
-            <h2 class="text-lg font-semibold mb-2">認識結果（薬の棚位置）：</h2>
-            <div id="outputArea" class="output-box">ここに認識結果に対応するテキストが表示されます。</div>
-        </div>
-         <div class="mt-6 text-left">
-            <h2 class="text-lg font-semibold mb-2">認識処理プロセス：</h2>
-            <div id="recognizedWordArea" class="output-box bg-gray-100">ここに認識された単語と処理プロセスが表示されます。</div>
-        </div>
-    </div>
+        <div class="mt-6 text-left">
+            <h2 class="text-lg font-semibold mb-2">認識結果（薬の棚位置）：</h2>
+            <div id="outputArea" class="output-box">ここに認識結果に対応するテキストが表示されます。</div>
+        </div>
+         <div class="mt-6 text-left">
+            <h2 class="text-lg font-semibold mb-2">認識処理プロセス：</h2>
+            <div id="recognizedWordArea" class="output-box bg-gray-100">ここに認識された単語と処理プロセスが表示されます。</div>
+        </div>
+    </div>
 
-    <script>
-        // --- グローバル変数 ---
-        let wordMap = {}; // CSVから読み込んだデータ格納用
-        let recognition;  // SpeechRecognition インスタンス
-        const startButton = document.getElementById('startButton');
-        const startButtonText = document.getElementById('startButtonText');
-        const outputArea = document.getElementById('outputArea');
-        const statusArea = document.getElementById('statusArea');
-        const recognizedWordArea = document.getElementById('recognizedWordArea');
+    <script>
+        // --- グローバル変数 ---
+        let wordMap = {}; // CSVから読み込んだデータ格納用
+        let recognition;  // SpeechRecognition インスタンス
+        const startButton = document.getElementById('startButton');
+        const startButtonText = document.getElementById('startButtonText');
+        const outputArea = document.getElementById('outputArea');
+        const statusArea = document.getElementById('statusArea');
+        const recognizedWordArea = document.getElementById('recognizedWordArea');
 
-        // --- 設定箇所 ---
-        const csvFilePath = 'wordMap.csv'; // ★CSVファイルのパス
-        const SIMILARITY_THRESHOLD = 1; // 類似検索のしきい値
+        // --- 設定箇所 ---
+        const csvFilePath = 'wordMap.csv'; // ★CSVファイルのパス
+        const SIMILARITY_THRESHOLD = 4; // 類似検索のしきい値
 
-        // --- CSVファイルを読み込み、wordMapを生成する非同期関数 ---
-        async function loadWordMap(filePath) {
-            try {
-                const response = await fetch(filePath);
-                if (!response.ok) {
-                    throw new Error(`CSVファイルの読み込みに失敗しました: ${response.status} ${response.statusText}`);
+        // --- CSVファイルを読み込み、wordMapを生成する非同期関数 ---
+        async function loadWordMap(filePath) {
+            try {
+                const response = await fetch(filePath);
+                if (!response.ok) {
+                    throw new Error(`CSVファイルの読み込みに失敗しました: ${response.status} ${response.statusText}`);
+                }
+                const csvText = await response.text();
+                const lines = csvText.trim().split('\n');
+                const map = {};
+
+                // ヘッダー行をスキップ (1行目から開始)
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (line === '') continue; // 空行はスキップ
+
+                    // カンマで分割（値にカンマが含まれる場合を考慮 - より堅牢なパーサーが必要な場合あり）
+                    // ここでは単純な分割を試みる。値が "" で囲まれていると仮定。
+                    const parts = [];
+                    let currentPart = '';
+                    let inQuotes = false;
+                    for (let char of line) {
+                        if (char === '"' && !inQuotes) {
+                            inQuotes = true;
+                        } else if (char === '"' && inQuotes) {
+                            // 次の文字がカンマか行末なら引用符終了、そうでなければ引用符自体
+                            // （この簡易パーサーでは単純に引用符終了とする）
+                            inQuotes = false;
+                        } else if (char === ',' && !inQuotes) {
+                            parts.push(currentPart.trim());
+                            currentPart = '';
+                        } else {
+                            currentPart += char;
+                        }
+                    }
+                    parts.push(currentPart.trim()); // 最後の部分を追加
+
+                    if (parts.length >= 2) {
+                        const key = parts[0].trim();
+                        // 値の引用符を除去 (最初と最後の " を削除)
+                        let value = parts[1].trim();
+                        if (value.startsWith('"') && value.endsWith('"')) {
+                            value = value.substring(1, value.length - 1);
+                        }
+                        if (key) { // キーが空でないことを確認
+                            map[toKatakana(key)] = value; // ★CSVのキーもカタカナ化して登録
+                        }
+                    } else {
+                        console.warn(`Skipping invalid CSV line ${i + 1}: ${line}`);
+                    }
+                }
+                console.log(`CSV loaded successfully. ${Object.keys(map).length} words mapped.`);
+                return map;
+
+            } catch (error) {
+                console.error('Error loading or parsing CSV:', error);
+                statusArea.textContent = `エラー: ${error.message}`;
+                throw error; // エラーを再スローして呼び出し元で処理
+            }
+        }
+
+        // --- ひらがなをカタカナに変換する関数 ---
+        function toKatakana(str) {
+             if (typeof str !== 'string') {
+                 return str;
+             }
+             // ひらがな -> カタカナ
+             let katakana = str.replace(/[\u3041-\u3096]/g, function(match) {
+                 const charCode = match.charCodeAt(0) + 0x60;
+                 return String.fromCharCode(charCode);
+             });
+             // 半角カタカナを全角カタカナに
+             const kanaMap = { 'ｶﾞ': 'ガ', 'ｷﾞ': 'ギ', 'ｸﾞ': 'グ', 'ｹﾞ': 'ゲ', 'ｺﾞ': 'ゴ', 'ｻﾞ': 'ザ', 'ｼﾞ': 'ジ', 'ｽﾞ': 'ズ', 'ｾﾞ': 'ゼ', 'ｿﾞ': 'ゾ', 'ﾀﾞ': 'ダ', 'ﾁﾞ': 'ヂ', 'ﾂﾞ': 'ヅ', 'ﾃﾞ': 'デ', 'ﾄﾞ': 'ド', 'ﾊﾞ': 'バ', 'ﾋﾞ': 'ビ', 'ﾌﾞ': 'ブ', 'ﾍﾞ': 'ベ', 'ﾎﾞ': 'ボ', 'ﾊﾟ': 'パ', 'ﾋﾟ': 'ピ', 'ﾌﾟ': 'プ', 'ﾍﾟ': 'ペ', 'ﾎﾟ': 'ポ', 'ｳﾞ': 'ヴ', 'ﾜﾞ': 'ヷ', 'ｦﾞ': 'ヺ', 'ｱ': 'ア', 'ｲ': 'イ', 'ｳ': 'ウ', 'ｴ': 'エ', 'ｵ': 'オ', 'ｶ': 'カ', 'ｷ': 'キ', 'ｸ': 'ク', 'ｹ': 'ケ', 'ｺ': 'コ', 'ｻ': 'サ', 'ｼ': 'シ', 'ｽ': 'ス', 'ｾ': 'セ', 'ｿ': 'ソ', 'ﾀ': 'タ', 'ﾁ': 'チ', 'ﾂ': 'ツ', 'ﾃ': 'テ', 'ﾄ': 'ト', 'ﾅ': 'ナ', 'ﾆ': 'ニ', 'ﾇ': 'ヌ', 'ﾈ': 'ネ', 'ﾉ': 'ノ', 'ﾊ': 'ハ', 'ﾋ': 'ヒ', 'ﾌ': 'フ', 'ﾍ': 'ヘ', 'ﾎ': 'ホ', 'ﾏ': 'マ', 'ﾐ': 'ミ', 'ﾑ': 'ム', 'ﾒ': 'メ', 'ﾓ': 'モ', 'ﾔ': 'ヤ', 'ﾕ': 'ユ', 'ﾖ': 'ヨ', 'ﾗ': 'ラ', 'ﾘ': 'リ', 'ﾙ': 'ル', 'ﾚ': 'レ', 'ﾛ': 'ロ', 'ﾜ': 'ワ', 'ｦ': 'ヲ', 'ﾝ': 'ン', 'ｧ': 'ァ', 'ｨ': 'ィ', 'ｩ': 'ゥ', 'ｪ': 'ェ', 'ｫ': 'ォ', 'ｯ': 'ッ', 'ｬ': 'ャ', 'ｭ': 'ュ', 'ｮ': 'ョ', '｡': '。', '､': '、', 'ｰ': 'ー', '｢': '「', '｣': '」', '･': '・' };
+             const reg = new RegExp('(' + Object.keys(kanaMap).join('|') + ')', 'g');
+             katakana = katakana.replace(reg, (match) => kanaMap[match])
+                              .replace(/゛/g, 'ﾞ').replace(/゜/g, 'ﾟ');
+             katakana = katakana.replace(/ /g, ''); // 半角スペース除去
+             return katakana;
+         }
+
+        // --- レーベンシュタイン距離計算関数 ---
+        function levenshteinDistance(s1, s2) {
+             const str1 = s1; // 既にカタカナ・整形済み想定
+             const str2 = s2; // キーは既にカタカナのはず
+
+             const costs = [];
+             for (let i = 0; i <= str1.length; i++) {
+                 let lastValue = i;
+                 for (let j = 0; j <= str2.length; j++) {
+                     if (i === 0) {
+                         costs[j] = j;
+                     } else {
+                         if (j > 0) {
+                             let newValue = costs[j - 1];
+                             if (str1.charCodeAt(i - 1) !== str2.charCodeAt(j - 1)) {
+                                 newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                             }
+                             costs[j - 1] = lastValue;
+                             lastValue = newValue;
+                         }
+                     }
+                 }
+                 if (i > 0) costs[str2.length] = lastValue;
+             }
+             return costs[str2.length];
+         }
+
+        // --- 最も近い単語と距離を見つける関数 ---
+        function findBestMatch(transcript, map) {
+             let minDistance = Infinity;
+             let bestMatchKey = null;
+             const keys = Object.keys(map);
+             if (keys.length === 0) return { bestMatchKey: null, minDistance: Infinity };
+
+             const katakanaTranscript = transcript; // 既にカタカナ化・整形済み想定
+
+             for (const key of keys) {
+                 const distance = levenshteinDistance(katakanaTranscript, key);
+                 if (distance < minDistance) {
+                     minDistance = distance;
+                     bestMatchKey = key;
+                 }
+             }
+             return { bestMatchKey, minDistance };
+         }
+
+        // --- 音声認識の初期化とイベントハンドラ設定 ---
+        function initializeRecognition() {
+            // Web Speech APIの互換性チェック
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            // SpeechGrammarList は必須ではないため、存在しない場合も考慮する
+            const SpeechGrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList;
+
+            // ★修正箇所1: SpeechRecognition が存在するかのみをチェックする
+            if (!SpeechRecognition) {
+                statusArea.textContent = 'お使いのブラウザは音声認識に対応していません（SpeechRecognition API が見つかりません）。';
+                startButton.disabled = true;
+                startButtonText.textContent = '非対応ブラウザ';
+                console.error("SpeechRecognition API is not available in this browser.");
+                return;
+            }
+
+            // SpeechRecognition が利用可能であればインスタンスを作成
+            recognition = new SpeechRecognition();
+            recognition.lang = 'ja-JP';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            // --- SpeechGrammarList の設定 (wordMap読み込み後に行う) ---
+            // ★修正箇所2: SpeechGrammarList が利用可能か、かつ wordMap が空でないかチェックする
+            if (SpeechGrammarList && Object.keys(wordMap).length > 0) {
+                const speechRecognitionList = new SpeechGrammarList();
+                const grammarKeywords = Object.keys(wordMap);
+                // JSGF文法を作成。キーは既にカタカナ化されていると想定。
+                const grammar = `#JSGF V1.0 UTF-8 ja; grammar drugs; public <drug> = ${grammarKeywords.join(' | ')} ;`;
+                try {
+                    speechRecognitionList.addFromString(grammar, 1);
+                    recognition.grammars = speechRecognitionList;
+                    console.log("SpeechGrammarList set successfully from loaded map.");
+                } catch (e) {
+                    console.error("Error adding grammar:", e);
+                    // グラマー設定に失敗しても音声認識自体は続行する
+                    statusArea.textContent = '警告: 音声認識の語彙設定でエラーが発生しました。認識精度が低下する可能性があります。';
+                }
+            } else {
+                // ★修正箇所3: SpeechGrammarList が利用できない場合の警告メッセージ
+                if (!SpeechGrammarList) {
+                    console.warn("SpeechGrammarList is not available in this browser.");
+                    statusArea.textContent = '警告: 語彙リスト機能(SpeechGrammarList)は利用できません。認識精度が低下する可能性があります。';
+                } else { // wordMap が空の場合
+                    console.warn("Word map is empty, skipping grammar list setup.");
+                    statusArea.textContent = '警告: 単語リストが空です。認識精度が低下する可能性があります。';
                 }
-                const csvText = await response.text();
-                const lines = csvText.trim().split('\n');
-                const map = {};
+            }
 
-                // ヘッダー行をスキップ (1行目から開始)
-                for (let i = 1; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (line === '') continue; // 空行はスキップ
+            // --- イベントハンドラ ---
+            recognition.onstart = () => {
+                statusArea.textContent = '音声認識中... 話してください。';
+                startButton.disabled = true;
+                startButton.classList.add('animate-pulse');
+                outputArea.textContent = '';
+                recognizedWordArea.textContent = '';
+            };
 
-                    // カンマで分割（値にカンマが含まれる場合を考慮 - より堅牢なパーサーが必要な場合あり）
-                    // ここでは単純な分割を試みる。値が "" で囲まれていると仮定。
-                    const parts = [];
-                    let currentPart = '';
-                    let inQuotes = false;
-                    for (let char of line) {
-                        if (char === '"' && !inQuotes) {
-                            inQuotes = true;
-                        } else if (char === '"' && inQuotes) {
-                            // 次の文字がカンマか行末なら引用符終了、そうでなければ引用符自体
-                            // （この簡易パーサーでは単純に引用符終了とする）
-                            inQuotes = false;
-                        } else if (char === ',' && !inQuotes) {
-                            parts.push(currentPart.trim());
-                            currentPart = '';
-                        } else {
-                            currentPart += char;
-                        }
-                    }
-                    parts.push(currentPart.trim()); // 最後の部分を追加
+            recognition.onend = () => {
+                statusArea.textContent = '準備完了'; // 認識終了後も準備完了に戻す
+                startButton.disabled = false;
+                startButton.classList.remove('animate-pulse');
+            };
 
-                    if (parts.length >= 2) {
-                        const key = parts[0].trim();
-                        // 値の引用符を除去 (最初と最後の " を削除)
-                        let value = parts[1].trim();
-                        if (value.startsWith('"') && value.endsWith('"')) {
-                            value = value.substring(1, value.length - 1);
-                        }
-                        if (key) { // キーが空でないことを確認
-                            map[key] = value;
-                        }
-                    } else {
-                        console.warn(`Skipping invalid CSV line ${i + 1}: ${line}`);
-                    }
+            recognition.onresult = (event) => {
+                const originalTranscript = event.results[0][0].transcript.trim();
+                let processLog = `元の認識：「${originalTranscript}」`;
+
+                if (originalTranscript === "") {
+                    statusArea.textContent = '音声が空でした。';
+                    recognizedWordArea.textContent = processLog + "（空の音声）";
+                    outputArea.textContent = '';
+                    return;
+                }
+
+                // カタカナ変換前に不要な文字を除去
+                const cleanedTranscript = originalTranscript.replace(/[、。？！\s　]/g, '');
+
+                if (originalTranscript !== cleanedTranscript) {
+                    processLog += ` → 整形：「${cleanedTranscript}」`;
+                }
+
+                // 整形した文字列をカタカナに変換
+                const katakanaTranscript = toKatakana(cleanedTranscript);
+
+                 if (cleanedTranscript !== katakanaTranscript) {
+                    processLog += ` → カタカナ化：「${katakanaTranscript}」`;
+                 }
+
+                if (katakanaTranscript === "") {
+                    statusArea.textContent = '有効な単語が認識されませんでした。';
+                    recognizedWordArea.textContent = processLog + "（有効な単語なし）";
+                    outputArea.textContent = '';
+                    return;
+                }
+
+                const { bestMatchKey, minDistance } = findBestMatch(katakanaTranscript, wordMap);
+
+                if (bestMatchKey && minDistance <= SIMILARITY_THRESHOLD) {
+                    outputArea.textContent = wordMap[bestMatchKey];
+                    if (minDistance === 0 && katakanaTranscript === bestMatchKey) {
+                        processLog += ` → 完全一致（登録語）：「${bestMatchKey}」`;
+                        statusArea.textContent = `「${bestMatchKey}」を認識しました。`;
+                    } else {
+                        processLog += ` → 近い登録語：「${bestMatchKey}」(距離: ${minDistance} / 比較元: "${katakanaTranscript}")`;
+                        statusArea.textContent = `「${originalTranscript}」を「${bestMatchKey}」として認識しました。`;
+                    }
+                    recognizedWordArea.textContent = processLog;
+                } else {
+                    outputArea.textContent = '登録されている薬名に一致しませんでした。';
+                    processLog += `（登録語に一致せず）`;
+                    if (bestMatchKey) {
+                         processLog += `\n   (最も近い登録語:「${bestMatchKey}」, 距離: ${minDistance} / 比較元: "${katakanaTranscript}")`;
+                         statusArea.textContent = `「${originalTranscript}」を認識しましたが、登録語との距離が遠すぎます。`;
+                    } else {
+                         statusArea.textContent = `「${originalTranscript}」を認識しましたが、登録語に一致しませんでした。`;
+                    }
+                    recognizedWordArea.textContent = processLog;
+                }
+            };
+
+            recognition.onerror = (event) => {
+                 let errorMessage = '音声認識エラーが発生しました。';
+                 switch (event.error) {
+                     case 'no-speech': errorMessage = '音声が検出されませんでした。'; break;
+                     case 'audio-capture': errorMessage = 'マイクにアクセスできませんでした。'; break;
+                     case 'not-allowed': errorMessage = 'マイクの使用が許可されていません。'; break;
+                     case 'network': errorMessage = 'ネットワークエラーが発生しました。'; break;
+                     case 'service-not-allowed': errorMessage = '音声認識サービスが許可されていません。'; break;
+                     case 'bad-grammar': errorMessage = '語彙リスト（Grammar）の設定に誤りがあります。'; console.error('Bad Grammar:', event.message); break;
+                     default: errorMessage = `エラー (${event.error}): ${event.message || '詳細不明'}`;
+                 }
+                 statusArea.textContent = errorMessage;
+                 outputArea.textContent = '';
+                 recognizedWordArea.textContent = '';
+                 startButton.disabled = false; // エラー後もボタンは有効にする
+                 startButton.classList.remove('animate-pulse');
+            };
+
+            // --- ボタンのクリックイベント ---
+            startButton.addEventListener('click', () => {
+                if (!recognition) {
+                    statusArea.textContent = '音声認識が初期化されていません。ページをリロードしてください。';
+                    return; // recognitionが未初期化の場合は何もしない
                 }
-                console.log(`CSV loaded successfully. ${Object.keys(map).length} words mapped.`);
-                return map;
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error("Recognition start error:", e);
+                    statusArea.textContent = '認識を開始できませんでした。ブラウザのマイク設定をご確認ください。';
+                    startButton.disabled = false;
+                    startButton.classList.remove('animate-pulse');
+                }
+            });
 
-            } catch (error) {
-                console.error('Error loading or parsing CSV:', error);
-                statusArea.textContent = `エラー: ${error.message}`;
-                throw error; // エラーを再スローして呼び出し元で処理
-            }
-        }
+            // 初期化完了、ボタンを有効化
+            // ★修正箇所4: ここは SpeechRecognition が存在すれば実行される
+            startButton.disabled = false;
+            startButtonText.textContent = '音声入力開始';
+            // statusArea のテキストは Grammar の警告で上書きされる場合がある
 
-        // --- ひらがなをカタカナに変換する関数 ---
-        function toKatakana(str) {
-             if (typeof str !== 'string') {
-                 return str;
-             }
-             // ひらがな -> カタカナ
-             let katakana = str.replace(/[\u3041-\u3096]/g, function(match) {
-                 const charCode = match.charCodeAt(0) + 0x60;
-                 return String.fromCharCode(charCode);
-             });
-             // 半角カタカナを全角カタカナに
-             const kanaMap = { 'ｶﾞ': 'ガ', 'ｷﾞ': 'ギ', 'ｸﾞ': 'グ', 'ｹﾞ': 'ゲ', 'ｺﾞ': 'ゴ', 'ｻﾞ': 'ザ', 'ｼﾞ': 'ジ', 'ｽﾞ': 'ズ', 'ｾﾞ': 'ゼ', 'ｿﾞ': 'ゾ', 'ﾀﾞ': 'ダ', 'ﾁﾞ': 'ヂ', 'ﾂﾞ': 'ヅ', 'ﾃﾞ': 'デ', 'ﾄﾞ': 'ド', 'ﾊﾞ': 'バ', 'ﾋﾞ': 'ビ', 'ﾌﾞ': 'ブ', 'ﾍﾞ': 'ベ', 'ﾎﾞ': 'ボ', 'ﾊﾟ': 'パ', 'ﾋﾟ': 'ピ', 'ﾌﾟ': 'プ', 'ﾍﾟ': 'ペ', 'ﾎﾟ': 'ポ', 'ｳﾞ': 'ヴ', 'ﾜﾞ': 'ヷ', 'ｦﾞ': 'ヺ', 'ｱ': 'ア', 'ｲ': 'イ', 'ｳ': 'ウ', 'ｴ': 'エ', 'ｵ': 'オ', 'ｶ': 'カ', 'ｷ': 'キ', 'ｸ': 'ク', 'ｹ': 'ケ', 'ｺ': 'コ', 'ｻ': 'サ', 'ｼ': 'シ', 'ｽ': 'ス', 'ｾ': 'セ', 'ｿ': 'ソ', 'ﾀ': 'タ', 'ﾁ': 'チ', 'ﾂ': 'ツ', 'ﾃ': 'テ', 'ﾄ': 'ト', 'ﾅ': 'ナ', 'ﾆ': 'ニ', 'ﾇ': 'ヌ', 'ﾈ': 'ネ', 'ﾉ': 'ノ', 'ﾊ': 'ハ', 'ﾋ': 'ヒ', 'ﾌ': 'フ', 'ﾍ': 'ヘ', 'ﾎ': 'ホ', 'ﾏ': 'マ', 'ﾐ': 'ミ', 'ﾑ': 'ム', 'ﾒ': 'メ', 'ﾓ': 'モ', 'ﾔ': 'ヤ', 'ﾕ': 'ユ', 'ﾖ': 'ヨ', 'ﾗ': 'ラ', 'ﾘ': 'リ', 'ﾙ': 'ル', 'ﾚ': 'レ', 'ﾛ': 'ロ', 'ﾜ': 'ワ', 'ｦ': 'ヲ', 'ﾝ': 'ン', 'ｧ': 'ァ', 'ｨ': 'ィ', 'ｩ': 'ゥ', 'ｪ': 'ェ', 'ｫ': 'ォ', 'ｯ': 'ッ', 'ｬ': 'ャ', 'ｭ': 'ュ', 'ｮ': 'ョ', '｡': '。', '､': '、', 'ｰ': 'ー', '｢': '「', '｣': '」', '･': '・' };
-             const reg = new RegExp('(' + Object.keys(kanaMap).join('|') + ')', 'g');
-             katakana = katakana.replace(reg, (match) => kanaMap[match])
-                              .replace(/゛/g, 'ﾞ').replace(/゜/g, 'ﾟ');
-             katakana = katakana.replace(/ /g, ''); // 半角スペース除去
-             return katakana;
-         }
+        } // end of initializeRecognition
 
-        // --- レーベンシュタイン距離計算関数 ---
-        function levenshteinDistance(s1, s2) {
-             const str1 = toKatakana(s1);
-             const str2 = s2; // キーは既にカタカナのはず
+        // --- 初期処理: CSVを読み込んでから認識を初期化 ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                wordMap = await loadWordMap(csvFilePath);
+                initializeRecognition(); // CSV読み込み成功後に初期化
+            } catch (error) {
+                // loadWordMap内で既にエラー表示されているはずだが念のため
+                statusArea.textContent = `初期化エラー: 単語リストを読み込めませんでした。(${csvFilePath})`;
+                startButton.disabled = true;
+                startButtonText.textContent = '読込失敗';
+            }
+        });
 
-             const costs = [];
-             for (let i = 0; i <= str1.length; i++) {
-                 let lastValue = i;
-                 for (let j = 0; j <= str2.length; j++) {
-                     if (i === 0) {
-                         costs[j] = j;
-                     } else {
-                         if (j > 0) {
-                             let newValue = costs[j - 1];
-                             if (str1.charCodeAt(i - 1) !== str2.charCodeAt(j - 1)) {
-                                 newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-                             }
-                             costs[j - 1] = lastValue;
-                             lastValue = newValue;
-                         }
-                     }
-                 }
-                 if (i > 0) costs[str2.length] = lastValue;
-             }
-             return costs[str2.length];
-         }
-
-        // --- 最も近い単語と距離を見つける関数 ---
-        function findBestMatch(transcript, map) {
-             let minDistance = Infinity;
-             let bestMatchKey = null;
-             const keys = Object.keys(map);
-             if (keys.length === 0) return { bestMatchKey: null, minDistance: Infinity };
-
-             const katakanaTranscript = transcript; // 既にカタカナ化・整形済み想定
-
-             for (const key of keys) {
-                 const distance = levenshteinDistance(katakanaTranscript, key);
-                 if (distance < minDistance) {
-                     minDistance = distance;
-                     bestMatchKey = key;
-                 }
-             }
-             return { bestMatchKey, minDistance };
-         }
-
-        // --- 音声認識の初期化とイベントハンドラ設定 ---
-        function initializeRecognition() {
-            // Web Speech APIの互換性チェック
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            const SpeechGrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList;
-
-            if (!SpeechRecognition || !SpeechGrammarList) {
-                statusArea.textContent = 'お使いのブラウザは音声認識に対応していません。';
-                startButton.disabled = true;
-                startButtonText.textContent = '非対応ブラウザ';
-                return;
-            }
-
-            recognition = new SpeechRecognition();
-            recognition.lang = 'ja-JP';
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
-
-            // --- SpeechGrammarList の設定 (wordMap読み込み後に行う) ---
-            const speechRecognitionList = new SpeechGrammarList();
-            const grammarKeywords = Object.keys(wordMap);
-            if (grammarKeywords.length > 0) {
-                const grammar = `#JSGF V1.0 UTF-8 ja; grammar drugs; public <drug> = ${grammarKeywords.join(' | ')} ;`;
-                try {
-                    speechRecognitionList.addFromString(grammar, 1);
-                    recognition.grammars = speechRecognitionList;
-                    console.log("SpeechGrammarList set successfully from loaded map.");
-                } catch (e) {
-                    console.error("Error adding grammar:", e);
-                    statusArea.textContent = '音声認識の語彙設定でエラーが発生しました。';
-                    // グラマー設定に失敗しても続行するが、精度が落ちる可能性
-                }
-            } else {
-                console.warn("Word map is empty, skipping grammar list setup.");
-                statusArea.textContent = '警告: 単語リストが空です。認識精度が低下する可能性があります。';
-            }
-
-            // --- イベントハンドラ ---
-            recognition.onstart = () => {
-                statusArea.textContent = '音声認識中... 話してください。';
-                startButton.disabled = true;
-                startButton.classList.add('animate-pulse');
-                outputArea.textContent = '';
-                recognizedWordArea.textContent = '';
-            };
-
-            recognition.onend = () => {
-                statusArea.textContent = '準備完了'; // 認識終了後も準備完了に戻す
-                startButton.disabled = false;
-                startButton.classList.remove('animate-pulse');
-            };
-
-            recognition.onresult = (event) => {
-                const originalTranscript = event.results[0][0].transcript.trim();
-                let processLog = `元の認識：「${originalTranscript}」`;
-
-                if (originalTranscript === "") {
-                    statusArea.textContent = '音声が空でした。';
-                    recognizedWordArea.textContent = processLog + "（空の音声）";
-                    outputArea.textContent = '';
-                    return;
-                }
-
-                const cleanedTranscript = originalTranscript.replace(/[、。？！\s　]/g, '');
-                if (originalTranscript !== cleanedTranscript) {
-                    processLog += ` → 整形：「${cleanedTranscript}」`;
-                }
-
-                const katakanaTranscript = toKatakana(cleanedTranscript);
-                 if (cleanedTranscript !== katakanaTranscript) {
-                    processLog += ` → カタカナ化：「${katakanaTranscript}」`;
-                 }
-
-                if (katakanaTranscript === "") {
-                    statusArea.textContent = '有効な単語が認識されませんでした。';
-                    recognizedWordArea.textContent = processLog + "（有効な単語なし）";
-                    outputArea.textContent = '';
-                    return;
-                }
-
-                const { bestMatchKey, minDistance } = findBestMatch(katakanaTranscript, wordMap);
-
-                if (bestMatchKey && minDistance <= SIMILARITY_THRESHOLD) {
-                    outputArea.textContent = wordMap[bestMatchKey];
-                    if (minDistance === 0 && katakanaTranscript === bestMatchKey) {
-                        processLog += ` → 完全一致（登録語）：「${bestMatchKey}」`;
-                        statusArea.textContent = `「${bestMatchKey}」を認識しました。`;
-                    } else {
-                        processLog += ` → 近い登録語：「${bestMatchKey}」(距離: ${minDistance} / 比較元: "${katakanaTranscript}")`;
-                        statusArea.textContent = `「${originalTranscript}」を「${bestMatchKey}」として認識しました。`;
-                    }
-                    recognizedWordArea.textContent = processLog;
-                } else {
-                    outputArea.textContent = '登録されている薬名に一致しませんでした。';
-                    processLog += `（登録語に一致せず）`;
-                    if (bestMatchKey) {
-                         processLog += `\n   (最も近い登録語:「${bestMatchKey}」, 距離: ${minDistance} / 比較元: "${katakanaTranscript}")`;
-                         statusArea.textContent = `「${originalTranscript}」を認識しましたが、登録語との距離が遠すぎます。`;
-                    } else {
-                         statusArea.textContent = `「${originalTranscript}」を認識しましたが、登録語に一致しませんでした。`;
-                    }
-                    recognizedWordArea.textContent = processLog;
-                }
-            };
-
-            recognition.onerror = (event) => {
-                 let errorMessage = '音声認識エラーが発生しました。';
-                 switch (event.error) {
-                     case 'no-speech': errorMessage = '音声が検出されませんでした。'; break;
-                     case 'audio-capture': errorMessage = 'マイクにアクセスできませんでした。'; break;
-                     case 'not-allowed': errorMessage = 'マイクの使用が許可されていません。'; break;
-                     case 'network': errorMessage = 'ネットワークエラーが発生しました。'; break;
-                     case 'service-not-allowed': errorMessage = '音声認識サービスが許可されていません。'; break;
-                     case 'bad-grammar': errorMessage = '語彙リスト（Grammar）の設定に誤りがあります。'; console.error('Bad Grammar:', event.message); break;
-                     default: errorMessage = `エラー (${event.error}): ${event.message || '詳細不明'}`;
-                 }
-                 statusArea.textContent = errorMessage;
-                 outputArea.textContent = '';
-                 recognizedWordArea.textContent = '';
-                 startButton.disabled = false; // エラー後もボタンは有効にする
-                 startButton.classList.remove('animate-pulse');
-            };
-
-            // --- ボタンのクリックイベント ---
-            startButton.addEventListener('click', () => {
-                if (!recognition) return; // recognitionが未初期化の場合は何もしない
-                try {
-                    recognition.start();
-                } catch (e) {
-                    console.error("Recognition start error:", e);
-                    statusArea.textContent = '認識を開始できませんでした。';
-                    startButton.disabled = false;
-                    startButton.classList.remove('animate-pulse');
-                }
-            });
-
-            // 初期化完了、ボタンを有効化
-            startButton.disabled = false;
-            startButtonText.textContent = '音声入力開始';
-            statusArea.textContent = '準備完了'; // CSV読み込み成功後、準備完了に
-
-        } // end of initializeRecognition
-
-        // --- 初期処理: CSVを読み込んでから認識を初期化 ---
-        document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                wordMap = await loadWordMap(csvFilePath);
-                initializeRecognition(); // CSV読み込み成功後に初期化
-            } catch (error) {
-                // loadWordMap内で既にエラー表示されているはずだが念のため
-                statusArea.textContent = `初期化エラー: 単語リストを読み込めませんでした。(${csvFilePath})`;
-                startButton.disabled = true;
-                startButtonText.textContent = '読込失敗';
-            }
-        });
-
-    </script>
+    </script>
 
 </body>
 </html>
